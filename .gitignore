@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+collection-report.json
+dist/data/provinces/
+*.p8
+.env*

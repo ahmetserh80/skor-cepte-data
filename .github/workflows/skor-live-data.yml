@@ -1,0 +1,80 @@
+name: Skor Cepte veri yenileme
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Aynı zaman dilimi güncel olsa da yeniden tara
+        type: boolean
+        default: false
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  push:
+    branches: [main]
+    paths: ['scripts/**', '.github/workflows/skor-live-data.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: skor-cepte-live-data
+  cancel-in-progress: false
+env:
+  SKOR_DATA_BASE_URL: https://skor-cepte-service.spry-whale-0977.chatgpt.site
+jobs:
+  update:
+    if: github.repository == 'ahmetserh80/skor-cepte-data' && github.ref == 'refs/heads/main' && !github.event.repository.private
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Veri okuyucu ve bildirim testleri
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          node --test tests/*.test.mjs
+      - name: Aynı zaman dilimindeki çift taramayı önle
+        id: slot
+        env:
+          FORCE_COLLECTION: ${{ inputs.force || 'false' }}
+        run: node scripts/check_slot.mjs
+      - name: Bildirim yapılandırmasını doğrula
+        env:
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_KEY_P8_BASE64: ${{ secrets.APNS_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          node --input-type=module - <<'JS'
+          import {providerToken} from './scripts/apns.mjs';
+          providerToken({keyId:process.env.APNS_KEY_ID,keyBase64:process.env.APNS_KEY_P8_BASE64,teamId:process.env.APPLE_TEAM_ID});
+          console.log('APNs configuration valid');
+          JS
+      - name: 81 ilin resmî kaynaklarını kontrol et
+        if: steps.slot.outputs.needed == 'true'
+        run: python3 scripts/collect_all.py
+      - name: Doğrulanmış veriyi yayımla
+        if: steps.slot.outputs.needed == 'true'
+        run: node scripts/live_delivery.mjs --publish-only
+      - name: Uygulamanın aldığı yayını doğrula
+        if: steps.slot.outputs.needed == 'true'
+        run: python3 scripts/download_release_data.py --allow-preserved
+      - name: Bekleyen bildirimleri ilet
+        env:
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_KEY_P8_BASE64: ${{ secrets.APNS_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/live_delivery.mjs --push-only
+      - name: Kaynak hatalarını raporla
+        if: always() && steps.slot.outputs.needed == 'true'
+        run: |
+          python3 - <<'PY'
+          import json,sys
+          from pathlib import Path
+          p=Path('collection-report.json')
+          if not p.exists():sys.exit('Collection did not finish')
+          report=json.loads(p.read_text())
+          print(json.dumps(report,ensure_ascii=False))
+          if report['errors']:sys.exit('Some sources failed; verified old records preserved')
+          PY
