@@ -5,19 +5,24 @@ snapshot gets a new success timestamp when its source could not be read.
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import datetime,timezone
 from pathlib import Path
-import json,os,time,urllib.request
+import json,os,time
 from update_provinces import collect
+from download_release_data import ORIGIN,remote as fetch_live
 
 BASE=os.environ.get('SKOR_DATA_BASE_URL','').rstrip('/')
 ROOT=Path('dist/data')
 
 def remote(path):
- if not BASE:return None
+ if BASE!=ORIGIN:
+  print(json.dumps({'feed_path':path,'error':'Unexpected feed origin'}),flush=True)
+  return None
  try:
-  with urllib.request.urlopen(BASE+'/'+path,timeout=20) as r:
-   if r.headers.get_content_type()!='application/json':return None
-   return json.load(r)
- except Exception:return None
+  # Use the same explicit JSON client as the verified release download.
+  # It identifies this application, rejects redirects and bounds response size.
+  return fetch_live('/'+path.lstrip('/'))
+ except Exception as error:
+  print(json.dumps({'feed_path':path,'error':type(error).__name__,'status':getattr(error,'code',None)}),flush=True)
+  return None
 
 def one(p,collection_started_at):
  start=time.monotonic();target=ROOT/'provinces'/(p['id']+'.json')
