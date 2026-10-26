@@ -1,12 +1,13 @@
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
+from http.client import IncompleteRead, RemoteDisconnected
 from pathlib import Path
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from transport import retry_read
+from transport import retry_read, transient
 from source_health import evaluate
 from source_reader import PublicSession, SourceError
 
@@ -14,6 +15,9 @@ from source_reader import PublicSession, SourceError
 class TransportTests(unittest.TestCase):
     def test_transient_read_recovers_with_exactly_one_bounded_retry(self):
         for error in (TimeoutError('slow'), URLError(TimeoutError('slow')),
+                      IncompleteRead(b'truncated response'),
+                      URLError(IncompleteRead(b'truncated response')),
+                      RemoteDisconnected('Remote end closed connection without response'),
                       HTTPError('https://example.invalid', 522, 'timeout', {}, None)):
             read = Mock(side_effect=[error, 'verified'])
             sleep = Mock()
@@ -26,6 +30,21 @@ class TransportTests(unittest.TestCase):
         with self.assertRaises(TimeoutError):
             retry_read(read, Mock())
         self.assertEqual(read.call_count, 2)
+
+    def test_repeated_truncation_preserves_failure_instead_of_accepting_partial_bytes(self):
+        read = Mock(side_effect=IncompleteRead(b'partial data'))
+        with self.assertRaises(IncompleteRead):
+            retry_read(read, Mock())
+        self.assertEqual(read.call_count, 2)
+
+    def test_truncated_response_is_a_transport_incident_not_validation_failure(self):
+        error = IncompleteRead(b'partial data')
+        registry = [{'name': 'Bartın',
+                     'last_error_kind': 'transport' if transient(error) else 'validation',
+                     'last_checked_at': '2026-10-26T13:00:00+00:00'}]
+        errors = [{'province': 'Bartın', 'error': str(error)}]
+        self.assertEqual(evaluate(registry, errors, '2026-10-26T13:15:00+00:00')['alerts'], [])
+        self.assertEqual(registry[0]['last_checked_at'], '2026-10-26T13:00:00+00:00')
 
     def test_denials_rate_limits_tls_and_parser_errors_never_retry(self):
         for error in (HTTPError('https://example.invalid', 403, 'denied', {}, None),
