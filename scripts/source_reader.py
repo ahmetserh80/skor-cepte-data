@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import sys
 import time
+from transport import retry_read
 from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, build_opener, HTTPCookieProcessor, HTTPRedirectHandler
 
@@ -238,6 +239,9 @@ class PublicSession:
         return self._send(url, fields)
 
     def _send(self, url, fields=None):
+        return retry_read(lambda: self._send_once(url, fields))
+
+    def _send_once(self, url, fields=None):
         time.sleep(max(0, 1 - (time.monotonic() - self.last_request)))
         self.last_request = time.monotonic()
         data = urlencode(fields).encode() if fields is not None else None
@@ -329,3 +333,4 @@ def main():
 
 if __name__ == '__main__':
     raise SystemExit(main())
+

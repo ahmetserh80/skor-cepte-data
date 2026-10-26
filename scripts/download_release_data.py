@@ -4,12 +4,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.request import build_opener,HTTPRedirectHandler,Request
 import argparse,json,os
+from transport import retry_read
 
 ORIGIN='https://skor-cepte-service.spry-whale-0977.chatgpt.site'
 class RejectRedirect(HTTPRedirectHandler):
  def redirect_request(self,*args,**kwargs):raise ValueError('Unexpected live data redirect')
 
 def remote(path):
+ return retry_read(lambda: _remote_once(path))
+
+def _remote_once(path):
  request=Request(ORIGIN+path,headers={'Accept':'application/json','User-Agent':'Skor-Cepte-release/0.6'})
  with build_opener(RejectRedirect()).open(request,timeout=30) as response:
   if response.status!=200 or response.headers.get_content_type()!='application/json':raise ValueError('Live data did not return JSON')
@@ -56,3 +60,4 @@ if __name__=='__main__':
  parser=argparse.ArgumentParser();parser.add_argument('--allow-preserved',action='store_true',help='Verify explicitly failed sources at their preserved timestamp; release builds stay strict by default')
  options=parser.parse_args()
  print('Verified published records for '+str(download(allow_preserved=options.allow_preserved))+' provinces.')
+

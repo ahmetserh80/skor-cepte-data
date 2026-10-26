@@ -95,9 +95,30 @@ advance their clock or mark them fresh. A province outage must not block deliver
 of other provinces' newly published events. Release-bundle validation remains
 strict by default and rejects snapshots older than six hours.
 
+## Source incidents and email noise
+
+Read operations retry once after two seconds only for timeouts, connection
+resets and HTTP 502/503/504/522/524. Access denials, rate limits, TLS errors,
+unexpected redirects and data validation failures are never bypassed or retried.
+The existing request spacing, validation and 14-minute total limit remain.
+
+Isolated transient source outages produce a warning and preserve the original
+snapshot and timestamp. If the same province stays unavailable for 45 minutes,
+the first such run fails to raise a GitHub alert. Validation/feed failures and
+outages affecting at least four provinces alert immediately. Incident state is
+saved in the existing published registry, so repeated source incidents do not
+send a new failed-run email on every scan. A successful source read clears that
+incident and permits a new alert for a later outage. Recovery and ongoing source
+status remain visible in the run logs/summary, rather than a separate email.
+
+This does not mute failures of tests, credentials, scheduling, publication,
+public-feed verification or push delivery; those still fail normally. No GitHub
+account notification settings are changed, and no paid storage is introduced.
+
 ## References
 
 - https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 - https://docs.github.com/en/billing/concepts/product-billing/github-actions
 - https://cron-job.org/en/faq/
 - https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event
+

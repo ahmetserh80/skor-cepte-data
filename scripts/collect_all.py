@@ -8,6 +8,8 @@ from pathlib import Path
 import json,os,time
 from update_provinces import collect
 from download_release_data import ORIGIN,remote as fetch_live
+from transport import transient
+from source_health import evaluate
 
 BASE=os.environ.get('SKOR_DATA_BASE_URL','').rstrip('/')
 ROOT=Path('dist/data')
@@ -33,6 +35,7 @@ def one(p,collection_started_at):
   # publisher preserves this province from its own verified storage.
   target.write_text(json.dumps({'province_id':p['id'],'province':p['name']}))
   p['last_error_at']=datetime.now(timezone.utc).isoformat()
+  p['last_error_kind']='feed'
   return p,'Latest verified snapshot is unavailable; server preservation required',round(time.monotonic()-start,1)
  if prior is None:prior={'source':p['url'].rstrip('/')+'/PuanDurumu','province':p['name'],'province_id':p['id'],'season':'2026-2027','groups':[]}
  if prior.get('province_id')!=p['id'] or prior.get('province')!=p['name']:raise ValueError('Prior province mismatch')
@@ -48,7 +51,8 @@ def one(p,collection_started_at):
    target.parent.mkdir(parents=True,exist_ok=True);tmp=target.with_suffix('.tmp');tmp.write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')));tmp.replace(target)
    p.update(status='ready',snapshot='/data/provinces/'+p['id']+'.json')
   else:p.update(status='source_empty',snapshot=None)
-  p['last_checked_at']=checked;p.pop('last_error_at',None)
+  p['last_checked_at']=checked
+  for key in ('last_error_at','last_error_kind','first_error_at','error_alerted_at'):p.pop(key,None)
   return p,None,round(time.monotonic()-start,1)
  except Exception as e:
   # A remotely fetched prior snapshot may be newer than the checkout.
@@ -56,6 +60,7 @@ def one(p,collection_started_at):
    target.write_text(json.dumps(prior,ensure_ascii=False,separators=(',',':')))
    p.update(status='ready',snapshot='/data/provinces/'+p['id']+'.json')
   p['last_error_at']=datetime.now(timezone.utc).isoformat()
+  p['last_error_kind']='transport' if transient(e) else 'validation'
   return p,str(e),round(time.monotonic()-start,1)
 
 def main():
@@ -71,8 +76,10 @@ def main():
    print(json.dumps({'province':p['name'],'status':'preserved' if error else 'verified','seconds':elapsed,'error':error},ensure_ascii=False),flush=True)
    if error:errors.append({'province':p['name'],'error':error})
  results.sort(key=lambda p:int(p['id']))
+ health=evaluate(results,errors,collection_started_at)
  (ROOT/'provinces.json').write_text(json.dumps(results,ensure_ascii=False,separators=(',',':')))
- report={'started_at':collection_started_at,'finished_at':datetime.now(timezone.utc).isoformat(),'seconds':round(time.monotonic()-started,1),'checked':81-len(errors),'errors':errors}
+ report={'started_at':collection_started_at,'finished_at':datetime.now(timezone.utc).isoformat(),'seconds':round(time.monotonic()-started,1),'checked':81-len(errors),'errors':errors,'health':health}
  Path('collection-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
  print(json.dumps(report,ensure_ascii=False),flush=True)
 if __name__=='__main__':main()
+
