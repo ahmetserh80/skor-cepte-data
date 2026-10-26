@@ -122,3 +122,13 @@ account notification settings are changed, and no paid storage is introduced.
 - https://cron-job.org/en/faq/
 - https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event
 
+
+## App Store çıkışı öncesi yapılacak: bağımsız Telegram alarmı
+
+26.10.2026 kullanıcı kararı: Skor Cepte Telegram sağlık alarmı şimdi kurulmayacak;
+App Store yayınına hazırlanırken kurulacak. Son başarılı veri alımından itibaren
+bir saat aşılırsa etkilenen il, son başarılı tarih-saat ve hata nedeni ile tek
+alarm; sorun sürerse üç saat sonra hatırlatma; düzelince tek toparlanma mesajı.
+Denetim, veri toplayıcıdan bağımsız çalışmalı ve tarama hiç tetiklenmediğinde de
+alarm verebilmeli. Bu, merkezi yedekleme için kullanılan Telegram alarmından
+ayrı bir takip kapsamıdır. Henüz kurulmuş/etkin değildir.
