@@ -1,8 +1,20 @@
 # Skor Cepte — public data collector
 
-Prepared deployment target: `ahmetserh80/skor-cepte-data` (a new public repository).
-This directory is a reviewable package. It is not an active deployment and its
-workflow does not run inside the private iOS repository.
+Active collector: `ahmetserh80/skor-cepte-data`. Its main-branch workflow is the
+sole scheduled publisher; the old private iOS collector is disabled.
+
+The verified service address is
+`https://skor-cepte-service.ahmetserh80.chatgpt.site`. The former spry-whale address
+redirects here. Public JSON reads reject redirects; authenticated delivery uses
+the canonical host while retaining the service's pinned GitHub OIDC audience.
+
+Since 2026-11-05, verified groups update independently. Invalid or missing old
+groups retain their exact content and checked_at; new invalid groups remain
+unverified. A partial update retains last_success_at as the last complete source
+read and exposes latest_partial_update_at, fresh_group_ids, preserved_group_ids
+and group_errors. The service checks this manifest against its published data.
+Source health still reports those failures; a successful publication does not
+mean that every source group is current.
 
 The package contains the official-source reader, validation, province identities,
 notification text/sender and automated checks. It contains no iOS application,
