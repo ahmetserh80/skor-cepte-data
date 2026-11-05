@@ -95,6 +95,19 @@ advance their clock or mark them fresh. A province outage must not block deliver
 of other provinces' newly published events. Release-bundle validation remains
 strict by default and rejects snapshots older than six hours.
 
+## Official competition labels
+
+The collector recognizes singular/plural youth categories, Turkish uppercase and
+ASCII spellings, and the official Kız/Kadın/Bayan and Erkek variants. When a
+competition omits its gender, only the verified E/B source form supplies it.
+Conflicting gender, season/province drift, changed team identities and inconsistent
+set scores remain errors. Competition IDs and original source labels are preserved.
+The display normalizes female youth categories to Kız and avoids repeating a
+leading province name. Each accepted group records `competition_scope` as `club`
+or `school`; existing school records are preserved and are not counted as club
+league coverage. This metadata does not claim that all categories in a province
+are available or that a source with errors is current.
+
 ## Source incidents and email noise
 
 Read operations retry once after two seconds only for timeouts, connection

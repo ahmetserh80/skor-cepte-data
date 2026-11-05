@@ -4,6 +4,7 @@ from html import escape
 import json,re,sys
 from pathlib import Path
 from source_reader import Document,table_rows,parse_results,SourceError
+from competition_labels import classify
 
 def table_html(t):
  if 'html' in t:return t['html']
@@ -22,11 +23,9 @@ def convert_province_strict(raw):
  groups=[];empty=[];excluded=[]
  for entry in raw['groups']:
   label=entry['competition']['label']
-  age=re.search(r'\b(Mini|Minik|Midi|Küçük|Yıldız|Genç)\b',label)
-  gender=re.search(r'\b(Kızlar?|Erkekler?)\b',label)
-  if not age or not gender:excluded.append(entry['competition']);continue
-  age=age.group();gender='Kız' if gender.group().startswith('Kız') else 'Erkek'
-  rem=re.sub(r'\b(Mini|Minik|Midi|Küçük|Yıldız|Genç)\s+(Kızlar?|Erkekler?)\b','',label).strip()
+  meta=classify(label,entry.get('_sex'),raw['province'])
+  if not meta:excluded.append(entry['competition']);continue
+  age=meta['category'];gender=meta['gender'];rem=meta['remaining']
   rem=re.sub(r'\bSüperlig\b','Süper Lig',rem,flags=re.I)
   rem=re.sub(r'\bGr\.?$', 'Grubu', rem)
   region=re.search(r'((?:Doğu|Batı|Kuzey|Güney)\s*)?(?:[A-ZÇĞİÖŞÜ]\s+)?Grubu$',rem)
@@ -57,7 +56,7 @@ def convert_province_strict(raw):
     m[side]=names[key]
    if m['score']:completed.update([m['home'],m['away']])
   if any(s['played']!=s['won']+s['lost'] or s['played']!=completed[s['team']] for s in standings):raise SourceError('Incomplete source result history: '+label)
-  groups.append(dict(id=entry['competition']['value'].split('*')[0],competition=entry['competition'],category=age,gender=gender,league=league,title=' '.join((f'{age} {gender} {league}'+(' - '+region if region else '')).split()),checked_at=entry['checked_at'],standings=standings,matches=matches,matches_published=bool(mt),cancelled_matches=cancelled))
+  groups.append(dict(id=entry['competition']['value'].split('*')[0],competition=entry['competition'],category=age,gender=gender,competition_scope=meta['scope'],league=league,title=' '.join((f'{age} {gender} {league}'+(' - '+region if region else '')).split()),checked_at=entry['checked_at'],standings=standings,matches=matches,matches_published=bool(mt),cancelled_matches=cancelled))
  groups.sort(key=lambda g:(0 if g['league'].startswith('Süper Lig') else 1 if g['league'].startswith('Gelişim Lig') else 2,{'Mini':0,'Minik':0,'Midi':1,'Küçük':2,'Yıldız':3,'Genç':4}[g['category']],g['gender'],re.sub(r'\d+',lambda m:m.group().zfill(5),g['title'])))
  if not groups:raise SourceError('No verified populated youth groups')
  return dict(schema_version=1,source=raw['source'],province=raw['province'],province_id=raw['province_id'],season='2026-2027',scope='Altyapı ligleri',last_success_at=min(g['checked_at'] for g in groups),collection_finished_at=max(g['checked_at'] for g in groups),automation_active=False,push_active=False,empty_competitions=empty,excluded_competitions=excluded,groups=groups)
@@ -72,7 +71,7 @@ def convert_province(raw):
   except SourceError as e:
    if str(e)=='No verified populated youth groups':
     label=entry['competition']['label']
-    target=empty if re.search(r'\b(Mini|Minik|Midi|Küçük|Yıldız|Genç)\b',label) and re.search(r'\b(Kızlar?|Erkekler?)\b',label) else excluded
+    target=empty if classify(label,entry.get('_sex')) else excluded
     target.append(entry['competition'])
    else:unverified.append({**entry['competition'],'reason':str(e)})
  if not groups:raise SourceError('No usable groups; source validation failed: '+str(unverified))

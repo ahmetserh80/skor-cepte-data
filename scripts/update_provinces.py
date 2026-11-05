@@ -5,9 +5,7 @@ import json,re,sys
 from source_reader import PublicSession,selected_value,clean,SourceError
 from html_tables import serialize
 from import_province import convert_province
-
-YOUTH=re.compile(r'\b(Mini|Minik|Midi|Küçük|Yıldız|Genç)\b')
-GENDER=re.compile(r'\b(Kızlar?|Erkekler?)\b')
+from competition_labels import is_youth
 
 def capture_tables(doc):
  # A layout table may wrap the actual standings and match tables. Serializing
@@ -26,7 +24,7 @@ def collect(previous):
  captured=[]
  for sex in sexes:
   doc=fresh(sex)
-  options=[{'label':clean(o.text()),'value':o.attrs.get('value')} for o in doc.one('select','icerik_ddlSyarismaadi').find('option') if o.attrs.get('value') not in ('0','',None) and YOUTH.search(clean(o.text())) and GENDER.search(clean(o.text()))]
+  options=[{'label':clean(o.text()),'value':o.attrs.get('value')} for o in doc.one('select','icerik_ddlSyarismaadi').find('option') if o.attrs.get('value') not in ('0','',None) and is_youth(clean(o.text()),sex)]
   for co in options:
    doc=session.select(doc,'icerik_ddlSyarismaadi',co['value'])
    if selected_value(doc,'icerik_ddlSil')!=pid or selected_value(doc,'icerik_ddlsbe')!=sex:raise SourceError('Source filter drift')
