@@ -10,7 +10,7 @@ export function needsCollection(data, now = Date.now(), force = false) {
 
 async function main() {
   const base = process.env.SKOR_DATA_BASE_URL;
-  if (base !== 'https://skor-cepte-service.spry-whale-0977.chatgpt.site') throw Error('Unexpected service');
+  if (base !== 'https://skor-cepte-service.ahmetserh80.chatgpt.site') throw Error('Unexpected service');
   async function read(path) {
     const r = await fetch(base + path, {redirect:'error', signal:AbortSignal.timeout(30000)});
     if (!r.ok || !r.headers.get('content-type')?.includes('application/json')) throw Error('Public data unavailable');

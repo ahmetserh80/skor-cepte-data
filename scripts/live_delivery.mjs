@@ -1,15 +1,15 @@
 import {readFile} from 'node:fs/promises';
 import {providerToken,sendAPNS} from './apns.mjs';
 const base=process.env.SKOR_DATA_BASE_URL?.replace(/\/$/,'');
-if(base!=='https://skor-cepte-service.spry-whale-0977.chatgpt.site')throw Error('Unexpected service origin');
+if(base!=='https://skor-cepte-service.ahmetserh80.chatgpt.site')throw Error('Unexpected service origin');
 async function runnerToken(){
- const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);url.searchParams.set('audience',base);
+ const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);url.searchParams.set('audience','https://skor-cepte-service.spry-whale-0977.chatgpt.site');
  const r=await fetch(url,{headers:{authorization:'Bearer '+process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN},signal:AbortSignal.timeout(20000)});
  if(!r.ok)throw Error('GitHub OIDC request failed');return (await r.json()).value;
 }
 async function api(path,{method='GET',body}={}){
  const token=await runnerToken();
- const r=await fetch(base+path,{method,headers:{authorization:'Bearer '+token,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(120000)});
+ const r=await fetch(base+path,{method,redirect:'error',headers:{authorization:'Bearer '+token,...(body?{'content-type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(120000)});
  if(!r.ok || !r.headers.get('content-type')?.includes('application/json'))throw Error('Service request failed: '+path+' ('+r.status+')');
  return r.json();
 }

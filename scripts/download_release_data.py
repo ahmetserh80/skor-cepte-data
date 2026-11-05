@@ -6,7 +6,7 @@ from urllib.request import build_opener,HTTPRedirectHandler,Request
 import argparse,json,os
 from transport import retry_read
 
-ORIGIN='https://skor-cepte-service.spry-whale-0977.chatgpt.site'
+ORIGIN='https://skor-cepte-service.ahmetserh80.chatgpt.site'
 class RejectRedirect(HTTPRedirectHandler):
  def redirect_request(self,*args,**kwargs):raise ValueError('Unexpected live data redirect')
 

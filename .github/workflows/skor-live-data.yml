@@ -18,7 +18,7 @@ concurrency:
   group: skor-cepte-live-data
   cancel-in-progress: false
 env:
-  SKOR_DATA_BASE_URL: https://skor-cepte-service.spry-whale-0977.chatgpt.site
+  SKOR_DATA_BASE_URL: https://skor-cepte-service.ahmetserh80.chatgpt.site
 jobs:
   update:
     if: github.repository == 'ahmetserh80/skor-cepte-data' && github.ref == 'refs/heads/main' && !github.event.repository.private
