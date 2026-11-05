@@ -39,6 +39,20 @@ def download(root=Path('dist/data'),fetch=remote,now=None,allow_preserved=False)
    failure_at=datetime.fromisoformat(p['last_error_at'].replace('Z','+00:00'))
    if failure_at>now+timedelta(minutes=5):raise ValueError('Future source failure date')
    maximum_age=timedelta(days=30)
+   if data.get('partial_update'):
+    # Only the explicitly checked groups advance. The old complete-read clock
+    # stays visible and must not eventually block every other province.
+    partial_at=datetime.fromisoformat(data['latest_partial_update_at'].replace('Z','+00:00'))
+    fresh=data.get('fresh_group_ids',[]);kept=data.get('preserved_group_ids',[])
+    if not fresh or len(set(fresh+kept))!=len(fresh)+len(kept) or set(fresh+kept)!={g.get('id')for g in data['groups']}:raise ValueError('Invalid partial group coverage')
+    for group in data['groups']:
+     state='fresh' if group['id']in fresh else 'preserved'
+     if group.get('source_state')!=state:raise ValueError('Invalid partial group state')
+     if state=='fresh':
+      clock=datetime.fromisoformat(group['checked_at'].replace('Z','+00:00'))
+      if clock<partial_at-timedelta(minutes=5) or clock>now+timedelta(minutes=5):raise ValueError('Invalid partial group clock')
+    if timestamp>partial_at:raise ValueError('Invalid partial complete clock')
+    timestamp=partial_at
   if not -timedelta(minutes=5)<=now-timestamp<=maximum_age:raise ValueError('Stale/future live data: '+p['name'])
   for group in data['groups']:
    if not group.get('standings') or not isinstance(group.get('matches'),list):raise ValueError('Incomplete group')

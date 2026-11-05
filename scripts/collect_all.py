@@ -45,14 +45,21 @@ def one(p,collection_started_at):
   if data:
    # Existing app versions display last_success_at. Use the real batch start
    # only after a successful source read; failed provinces keep their old clock.
-   data['source_checked_at']=data['last_success_at']
+   data['source_checked_at']=data.get('collection_finished_at',data['last_success_at']) if data.get('partial_update') else data['last_success_at']
    data['collection_started_at']=collection_started_at
-   data['last_success_at']=collection_started_at
+   if data.get('partial_update'):
+    data['latest_partial_update_at']=collection_started_at
+    # The old app must still show the last complete source read, not a false success.
+    if not prior.get('groups'):data['last_success_at']=collection_started_at
+   else:data['last_success_at']=collection_started_at
    target.parent.mkdir(parents=True,exist_ok=True);tmp=target.with_suffix('.tmp');tmp.write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')));tmp.replace(target)
    p.update(status='ready',snapshot='/data/provinces/'+p['id']+'.json')
+   if data.get('partial_update'):
+    p.update(last_error_at=checked,last_error_kind='partial',partial_updated_at=checked,partial_groups=len(data['group_errors']))
+    return p,'Partial source update: '+str(len(data['fresh_group_ids']))+' verified groups; '+str(len(data['preserved_group_ids']))+' preserved groups; '+str(len(data['group_errors']))+' source issues',round(time.monotonic()-start,1)
   else:p.update(status='source_empty',snapshot=None)
   p['last_checked_at']=checked
-  for key in ('last_error_at','last_error_kind','first_error_at','error_alerted_at'):p.pop(key,None)
+  for key in ('last_error_at','last_error_kind','first_error_at','error_alerted_at','partial_updated_at','partial_groups'):p.pop(key,None)
   return p,None,round(time.monotonic()-start,1)
  except Exception as e:
   # A remotely fetched prior snapshot may be newer than the checkout.

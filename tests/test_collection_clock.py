@@ -37,6 +37,18 @@ class CollectionClockTests(unittest.TestCase):
    self.assertIn('last_error_at',province)
    self.assertEqual(province['last_checked_at'],self.province['last_checked_at'])
 
+ def test_partial_update_keeps_complete_clock_and_signals_the_source_issue(self):
+  partial={**self.fresh,'last_success_at':self.prior['last_success_at'],'partial_update':True,'fresh_group_ids':['g1'],'preserved_group_ids':['g2'],'group_errors':[{'id':'g2','reason':'Invalid score','retained':True}]}
+  with TemporaryDirectory() as tmp,patch.object(collector,'ROOT',Path(tmp)),patch.object(collector,'remote',return_value=copy.deepcopy(self.prior)),patch.object(collector,'collect',return_value=copy.deepcopy(partial)):
+   province,error,_=collector.one(dict(self.province),self.started)
+   saved=json.loads((Path(tmp)/'provinces/7.json').read_text())
+   self.assertEqual(saved['last_success_at'],self.prior['last_success_at'])
+   self.assertEqual(saved['latest_partial_update_at'],self.started)
+   self.assertEqual(saved['source_checked_at'],self.fresh['collection_finished_at'])
+   self.assertEqual(province['last_checked_at'],self.province['last_checked_at'])
+   self.assertEqual(province['last_error_kind'],'partial');self.assertEqual(province['partial_groups'],1)
+   self.assertIn('1 verified groups; 1 preserved groups',error)
+
  def test_new_runner_can_preserve_remote_data_without_a_bundled_snapshot(self):
   with TemporaryDirectory() as tmp,patch.object(collector,'ROOT',Path(tmp)),patch.object(collector,'remote',return_value=copy.deepcopy(self.prior)),patch.object(collector,'collect',side_effect=ValueError('Source unavailable')):
    _,error,_=collector.one(dict(self.province),self.started)

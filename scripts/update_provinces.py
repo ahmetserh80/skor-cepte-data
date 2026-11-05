@@ -6,6 +6,7 @@ from source_reader import PublicSession,selected_value,clean,SourceError
 from html_tables import serialize
 from import_province import convert_province
 from competition_labels import is_youth
+from partial_groups import merge_verified_groups
 
 def capture_tables(doc):
  # A layout table may wrap the actual standings and match tables. Serializing
@@ -45,9 +46,7 @@ def collect(previous):
    entry.update(checked_at=datetime.now(timezone.utc).isoformat(),tables=capture_tables(isolated))
   data=convert_province({'province':previous['province'],'province_id':pid,'source':source,'groups':captured})
   print(json.dumps({'province':previous['province'],'isolated_rechecks':len(retry),'remaining_unverified':len(data.get('unverified_competitions',[]))},ensure_ascii=False),flush=True)
- known={g['competition']['value'] for g in previous['groups']}
- if not known.issubset({g['competition']['value'] for g in data['groups']}):raise SourceError('Known group disappeared; preserve prior snapshot: '+json.dumps({'missing':[g['title'] for g in previous['groups'] if g['competition']['value'] not in {n['competition']['value'] for n in data['groups']}],'unverified':data.get('unverified_competitions',[])},ensure_ascii=False))
- return data
+ return merge_verified_groups(previous,data)
 
 if __name__=='__main__':
  registry_path=Path('dist/data/provinces.json');registry=json.loads(registry_path.read_text());errors=[]

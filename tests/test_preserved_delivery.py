@@ -29,4 +29,13 @@ class PreservedDelivery(unittest.TestCase):
    self.record['last_success_at']=timestamp.isoformat()
    with self.assertRaises(ValueError):self.verify(True)
 
+ def test_recent_partial_updates_do_not_expire_with_the_old_complete_clock(self):
+  self.record.update(partial_update=True,latest_partial_update_at=self.now.isoformat(),fresh_group_ids=['1'],preserved_group_ids=[])
+  self.record['last_success_at']=(self.now-timedelta(days=31)).isoformat()
+  self.record['groups'][0].update(id='1',source_state='fresh',checked_at=self.now.isoformat())
+  self.verify(True)
+  with self.assertRaises(ValueError):self.verify(False)
+  self.record['groups'][0]['checked_at']=(self.now-timedelta(days=31)).isoformat()
+  with self.assertRaises(ValueError):self.verify(True)
+
 if __name__=='__main__':unittest.main()
