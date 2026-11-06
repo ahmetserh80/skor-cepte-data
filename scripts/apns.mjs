@@ -11,12 +11,16 @@ export function providerToken({keyBase64,keyId,teamId},now=Math.floor(Date.now()
 }
 export function notification(target) {
  const latest=target.events.at(-1),cards=notificationCards(target.events);
- const title=notificationTitle(target.events);
- const shown=cards.slice(-3);
- const body=cards.length===1?cards[0].body:shown.map(c=>c.subtitle+'\n'+c.body).join('\n\n')+(cards.length>shown.length?'\n+'+(cards.length-shown.length)+' gelişme daha. Uygulamayı aç.':'');
+ const own=card=>!!target.club&&card.events.some(e=>e.clubs?.includes(target.club));
+ const ordered=[...cards].reverse().sort((a,b)=>Number(own(b))-Number(own(a)));
+ const ownEvents=target.events.filter(e=>target.club&&e.clubs?.includes(target.club));
+ const title=Array.from((ownEvents.length?target.club+' · ':'')+notificationTitle(ownEvents.length?ownEvents:target.events)).slice(0,120).join('');
+ const shown=ordered.slice(0,3);
+ const footer=cards.length>shown.length?'\n+'+(cards.length-shown.length)+' gelişme daha. Uygulamayı aç.':'';
+ let content=Array.from(cards.length===1?cards[0].body:shown.map(c=>c.subtitle+'\n'+c.body).join('\n\n')).slice(0,1400-Array.from(footer).length);
  const collapse=createHash('sha256').update(target.id+target.events.map(e=>e.id).sort().join(',')).digest('hex');
- const payload={aps:{alert:{title,...(cards.length===1?{subtitle:cards[0].subtitle.slice(0,300)}:{}),body:Array.from(body).slice(0,1400).join('')},sound:'default','thread-id':'skor-'+target.province},province:target.province,group:cards.length===1?latest.group??null:null,event:latest.id};
- while(Buffer.byteLength(JSON.stringify(payload))>3900)payload.aps.alert.body=Array.from(payload.aps.alert.body).slice(0,-50).join('');
+ const payload={aps:{alert:{title,...(cards.length===1?{subtitle:Array.from(cards[0].subtitle).slice(0,300).join('')}:{}),body:content.join('')+footer},sound:'default','thread-id':'skor-'+target.province},province:target.province,group:cards.length===1?latest.group??null:null,event:latest.id};
+ while(Buffer.byteLength(JSON.stringify(payload))>3900&&content.length){content=content.slice(0,-50);payload.aps.alert.body=content.join('')+footer;}
  return {collapse,payload};
 }
 export function sendAPNS(target,jwt,{connect=http2.connect}={}) {

@@ -22,3 +22,20 @@ test('HTTP2 sender passes topic and handles Apple success without logging tokens
  const connect=host=>{assert.equal(host,'https://api.push.apple.com');const client=new EventEmitter();client.close=()=>{};client.request=headers=>{observed=headers;const req=new EventEmitter();req.setEncoding=()=>{};req.end=body=>{assert.equal(JSON.parse(body).aps.sound,'default');queueMicrotask(()=>{req.emit('response',{':status':200});req.emit('end');});};return req;};return client;};
  const result=await sendAPNS(target,'jwt',{connect});assert.equal(result.status,200);assert.equal(observed['apns-topic'],'com.torus.skorcepte');assert.equal(observed['apns-push-type'],'alert');
 });
+
+test('own-club changes stay first even when newer other-club cards fill a digest',()=>{
+ const events=Array.from({length:8},(_,i)=>({id:'e'+i,kind:'schedule',group:'g'+i,clubs:[i===0?'MASK':'Other'],teams:[i===0?'MASK':'Other','Opponent'],title:'Grup '+i,detail:'Saat değişti',at:'2026-11-06T0'+i+':00:00Z'}));
+ const {payload,collapse}=notification({...target,club:'MASK',events});
+ assert.match(payload.aps.alert.title,/^MASK · Maç takvimi/);
+ assert.ok(payload.aps.alert.body.startsWith('Grup 0\nMASK – Opponent'));
+ assert.match(payload.aps.alert.body,/\+5 gelişme daha\. Uygulamayı aç\.$/);
+ assert.equal(collapse,notification({...target,club:'MASK',events:[...events].reverse()}).collapse);
+});
+
+test('Turkish and emoji byte truncation keeps the undisplayed-count footer intact',()=>{
+ const events=Array.from({length:20},(_,i)=>({id:'e'+i,kind:'score',group:'g'+i,title:'Grup',text:'🏐 Şampiyonluğu '.repeat(1000)}));
+ const {payload}=notification({...target,events});
+ assert.ok(Buffer.byteLength(JSON.stringify(payload))<=3900);
+ assert.match(payload.aps.alert.body,/\+17 gelişme daha\. Uygulamayı aç\.$/);
+ assert.doesNotMatch(payload.aps.alert.body,/\uFFFD/);
+});
