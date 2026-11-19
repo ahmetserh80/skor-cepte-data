@@ -23,7 +23,7 @@ jobs:
   update:
     if: github.repository == 'ahmetserh80/skor-cepte-data' && github.ref == 'refs/heads/main' && !github.event.repository.private
     runs-on: ubuntu-24.04
-    timeout-minutes: 14
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
